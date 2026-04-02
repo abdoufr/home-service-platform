@@ -1,0 +1,22 @@
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: ":80"
+
+providers:
+  file:
+    filename: "/etc/traefik/dynamic_conf.yml"
+    watch: true
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+  consulCatalog:
+    endpoint:
+      address: "consul:8500"
+    exposedByDefault: false
+
+log:
+  level: DEBUG

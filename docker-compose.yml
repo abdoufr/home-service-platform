@@ -1,0 +1,193 @@
+services:
+  traefik:
+    image: traefik:v3.1
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - //var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro
+    networks:
+      - home-service-net
+
+  consul:
+    image: hashicorp/consul:1.18
+    ports:
+      - "8500:8500"
+    command: "agent -server -bootstrap-expect=1 -ui -client=0.0.0.0"
+    networks:
+      - home-service-net
+    healthcheck:
+      test: [ "CMD", "consul", "members" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - home-service-net
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "check_running" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - home-service-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: api_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - api-db-data:/var/lib/postgresql/data
+    networks:
+      - home-service-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build: ./auth-service
+    # ports:
+    #   - "8001:8001"
+    environment:
+      - SECRET_KEY=auth-secret-key-prod
+      - JWT_SECRET=jwt-secret-key-shared
+      - DB_NAME=auth_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=auth-db
+      - CONSUL_HOST=consul
+      - RABBITMQ_HOST=rabbitmq
+      - SERVICE_HOST=auth-service
+      - SERVICE_PORT=8001
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - home-service-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=Host(`localhost`) && PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=8001"
+
+  api-service:
+    build: ./api-service
+    # ports:
+    #   - "8002:8002"
+    environment:
+      - SECRET_KEY=api-secret-key-prod
+      - JWT_SECRET=jwt-secret-key-shared
+      - DB_NAME=api_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=api-db
+      - CONSUL_HOST=consul
+      - RABBITMQ_HOST=rabbitmq
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - SERVICE_HOST=api-service
+      - SERVICE_PORT=8002
+    depends_on:
+      api-db:
+        condition: service_healthy
+      consul:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - home-service-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`localhost`) && PathPrefix(`/api`) && !PathPrefix(`/api/auth`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.services.api.loadbalancer.server.port=8002"
+
+  celery-worker:
+    build: ./api-service
+    command: sh -c "sleep 15 && celery -A api_service worker -l info"
+    environment:
+      - SECRET_KEY=api-secret-key-prod
+      - JWT_SECRET=jwt-secret-key-shared
+      - DB_NAME=api_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=api-db
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      api-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - home-service-net
+
+  notification-worker:
+    build: ./notification-worker
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - home-service-net
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_AUTH_URL: http://localhost/api/auth
+        REACT_APP_API_URL: http://localhost/api
+    # ports:
+    #   - "3000:3000"
+    depends_on:
+      - auth-service
+      - api-service
+    networks:
+      - home-service-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`localhost`) && PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.routers.frontend.priority=1"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+
+networks:
+  home-service-net:
+    driver: bridge
+
+volumes:
+  auth-db-data:
+  api-db-data:
