@@ -1,0 +1,109 @@
+services:
+  auth-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - home-service-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: api_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - api-db-data:/var/lib/postgresql/data
+    networks:
+      - home-service-net
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  auth-service:
+    build: ./auth-service
+    ports:
+      - "8001:8001"
+    environment:
+      - SECRET_KEY=auth-secret-key-prod
+      - JWT_SECRET=jwt-secret-key-shared
+      - DB_NAME=auth_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=auth-db
+      - CONSUL_HOST=${PC1_IP:-consul}
+      - RABBITMQ_HOST=${PC1_IP:-rabbitmq}
+      - SERVICE_HOST=${PC2_IP:-auth-service}
+      - SERVICE_PORT=8001
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - home-service-net
+
+  api-service:
+    build: ./api-service
+    ports:
+      - "8002:8002"
+    environment:
+      - SECRET_KEY=api-secret-key-prod
+      - JWT_SECRET=jwt-secret-key-shared
+      - DB_NAME=api_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=api-db
+      - CONSUL_HOST=${PC1_IP:-consul}
+      - RABBITMQ_HOST=${PC1_IP:-rabbitmq}
+      - CELERY_BROKER_URL=amqp://guest:guest@${PC1_IP:-rabbitmq}:5672//
+      - AUTH_SERVICE_URL=http://${PC2_IP:-auth-service}:8001
+      - SERVICE_HOST=${PC2_IP:-api-service}
+      - SERVICE_PORT=8002
+    depends_on:
+      api-db:
+        condition: service_healthy
+    networks:
+      - home-service-net
+
+  celery-worker:
+    build: ./api-service
+    command: sh -c "sleep 15 && celery -A api_service worker -l info"
+    environment:
+      - SECRET_KEY=api-secret-key-prod
+      - JWT_SECRET=jwt-secret-key-shared
+      - DB_NAME=api_db
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_HOST=api-db
+      - CELERY_BROKER_URL=amqp://guest:guest@${PC1_IP:-rabbitmq}:5672//
+      - RABBITMQ_HOST=${PC1_IP:-rabbitmq}
+    depends_on:
+      api-db:
+        condition: service_healthy
+    networks:
+      - home-service-net
+
+  notification-worker:
+    build: ./notification-worker
+    environment:
+      - RABBITMQ_HOST=${PC1_IP:-rabbitmq}
+    networks:
+      - home-service-net
+
+networks:
+  home-service-net:
+    driver: bridge
+
+volumes:
+  auth-db-data:
+  api-db-data:
