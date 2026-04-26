@@ -18,8 +18,9 @@ const ServiceList = () => {
 
     useEffect(() => {
         api.get('/categories/').then(res => {
-            setCategories(res.data.results || res.data);
-        });
+            const data = res.data.results || res.data;
+            setCategories(Array.isArray(data) ? data : []);
+        }).catch(() => setCategories([]));
     }, []);
 
     useEffect(() => {
@@ -33,7 +34,8 @@ const ServiceList = () => {
                 if (filters.ordering) params.append('ordering', filters.ordering);
 
                 const res = await api.get(`/services/?${params.toString()}`);
-                setServices(res.data.results || res.data);
+                const data = res.data.results || res.data;
+                setServices(Array.isArray(data) ? data : []);
             } catch (error) {
                 console.error('Erreur:', error);
             } finally {
@@ -76,7 +78,7 @@ const ServiceList = () => {
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                         <option value="">Toutes catégories</option>
-                        {categories.map(cat => (
+                        {Array.isArray(categories) && categories.map(cat => (
                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                         ))}
                     </select>
@@ -107,7 +109,7 @@ const ServiceList = () => {
                 </div>
             ) : services.length > 0 ? (
                 <div className="grid md:grid-cols-3 gap-6">
-                    {services.map(service => (
+                    {Array.isArray(services) && services.map(service => (
                         <ServiceCard key={service.id} service={service} />
                     ))}
                 </div>

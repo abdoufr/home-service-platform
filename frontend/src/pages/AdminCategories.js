@@ -15,7 +15,8 @@ const AdminCategories = () => {
     const fetchCategories = async () => {
         try {
             const res = await api.get('/admin/categories/');
-            setCategories(res.data.results || res.data);
+            const data = res.data.results || res.data;
+            setCategories(Array.isArray(data) ? data : []);
         } catch (error) {
             toast.error("Erreur chargement catégories");
         }
@@ -88,7 +89,7 @@ const AdminCategories = () => {
             </form>
 
             <div className="grid md:grid-cols-2 gap-4">
-                {categories.map(cat => (
+                {Array.isArray(categories) && categories.map(cat => (
                     <div key={cat.id} className="bg-white p-4 rounded-xl shadow flex justify-between items-center">
                         <div>
                             <h3 className="font-bold">{cat.icon} {cat.name}</h3>
