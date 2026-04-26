@@ -18,7 +18,7 @@ def register_service():
             port=settings.SERVICE_PORT,
             tags=[
                 'traefik.enable=true',
-                'traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)',
+                'traefik.http.routers.auth.rule=PathPrefix("/api/auth")',
                 'traefik.http.routers.auth.entrypoints=web',
                 'traefik.http.services.auth.loadbalancer.server.port=8001',
                 'auth', 'jwt', 'django'
