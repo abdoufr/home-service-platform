@@ -17,7 +17,8 @@ const AdminUsers = () => {
             if (searchQuery) params.append('search', searchQuery);
             
             const res = await authAPI.get(`/users/?${params.toString()}`);
-            setUsers(res.data.results || res.data);
+            const data = res.data.results || res.data;
+            setUsers(Array.isArray(data) ? data : []);
         } catch (error) {
             toast.error("Erreur chargement utilisateurs");
         } finally {
@@ -86,7 +87,7 @@ const AdminUsers = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {users.map(user => (
+                             {Array.isArray(users) && users.map(user => (
                                 <tr key={user.id} className="border-t">
                                     <td className="p-4">{user.id}</td>
                                     <td className="p-4">{user.username}</td>
