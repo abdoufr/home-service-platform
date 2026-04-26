@@ -1,24 +1,17 @@
-# http:
-#   routers:
-#     auth:
-#       rule: "PathPrefix(`/api/auth`)"
-#       service: auth-service
-#       entryPoints:
-#         - web
-# 
-#     api:
-#       rule: "PathPrefix(`/api`) && !PathPrefix(`/api/auth`)"
-#       service: api-service
-#       entryPoints:
-#         - web
-# 
-#   services:
-#     auth-service:
-#       loadBalancer:
-#         servers:
-#           - url: "http://auth-service:8001"
-# 
-#     api-service:
-#       loadBalancer:
-#         servers:
-#           - url: "http://api-service:8002"
+http:
+  routers:
+    frontend:
+      rule: "PathPrefix(`/`)"
+      service: frontend
+      entryPoints:
+        - web
+      priority: 1
+
+  services:
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:3000"
+
+# Les routes auth et api sont maintenant gérées dynamiquement via Consul Catalog.
+# Il ne faut pas les définir ici car l'hôte 'auth-service' n'est pas résolvable sur le PC1.
