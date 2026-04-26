@@ -44,13 +44,13 @@ services:
     build:
       context: ./frontend
       args:
-        REACT_APP_AUTH_URL: http://localhost/api/auth
-        REACT_APP_API_URL: http://localhost/api
+        REACT_APP_AUTH_URL: http://${PC1_IP:-localhost}/api/auth
+        REACT_APP_API_URL: http://${PC1_IP:-localhost}/api
     networks:
       - home-service-net
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(`localhost`) && PathPrefix(`/`)"
+      - "traefik.http.routers.frontend.rule=Host(`${PC1_IP:-localhost}`) || Host(`localhost`)"
       - "traefik.http.routers.frontend.entrypoints=web"
       - "traefik.http.routers.frontend.priority=1"
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"

@@ -16,7 +16,13 @@ def register_service():
             service_id=f"{settings.SERVICE_NAME}-{settings.SERVICE_PORT}",
             address=settings.SERVICE_HOST,
             port=settings.SERVICE_PORT,
-            tags=['auth', 'jwt', 'django'],
+            tags=[
+                'traefik.enable=true',
+                'traefik.http.routers.auth.rule=PathPrefix(`/api/auth`)',
+                'traefik.http.routers.auth.entrypoints=web',
+                'traefik.http.services.auth.loadbalancer.server.port=8001',
+                'auth', 'jwt', 'django'
+            ],
             check=consul.Check.http(
                 f"http://{settings.SERVICE_HOST}:{settings.SERVICE_PORT}/api/auth/health/",
                 interval='10s',

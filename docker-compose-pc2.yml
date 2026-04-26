@@ -42,9 +42,9 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_HOST=auth-db
-      - CONSUL_HOST=${PC1_IP:-consul}
-      - RABBITMQ_HOST=${PC1_IP:-rabbitmq}
-      - SERVICE_HOST=${PC2_IP:-auth-service}
+      - CONSUL_HOST=${PC1_IP}
+      - RABBITMQ_HOST=${PC1_IP}
+      - SERVICE_HOST=${PC2_IP}
       - SERVICE_PORT=8001
     depends_on:
       auth-db:
@@ -63,11 +63,11 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_HOST=api-db
-      - CONSUL_HOST=${PC1_IP:-consul}
-      - RABBITMQ_HOST=${PC1_IP:-rabbitmq}
-      - CELERY_BROKER_URL=amqp://guest:guest@${PC1_IP:-rabbitmq}:5672//
-      - AUTH_SERVICE_URL=http://${PC2_IP:-auth-service}:8001
-      - SERVICE_HOST=${PC2_IP:-api-service}
+      - CONSUL_HOST=${PC1_IP}
+      - RABBITMQ_HOST=${PC1_IP}
+      - CELERY_BROKER_URL=amqp://guest:guest@${PC1_IP}:5672//
+      - AUTH_SERVICE_URL=http://${PC1_IP}/api/auth
+      - SERVICE_HOST=${PC2_IP}
       - SERVICE_PORT=8002
     depends_on:
       api-db:
@@ -85,8 +85,8 @@ services:
       - DB_USER=postgres
       - DB_PASSWORD=postgres
       - DB_HOST=api-db
-      - CELERY_BROKER_URL=amqp://guest:guest@${PC1_IP:-rabbitmq}:5672//
-      - RABBITMQ_HOST=${PC1_IP:-rabbitmq}
+      - CELERY_BROKER_URL=amqp://guest:guest@${PC1_IP}:5672//
+      - RABBITMQ_HOST=${PC1_IP}
     depends_on:
       api-db:
         condition: service_healthy
@@ -96,7 +96,7 @@ services:
   notification-worker:
     build: ./notification-worker
     environment:
-      - RABBITMQ_HOST=${PC1_IP:-rabbitmq}
+      - RABBITMQ_HOST=${PC1_IP}
     networks:
       - home-service-net
 
