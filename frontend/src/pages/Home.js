@@ -16,10 +16,12 @@ const Home = () => {
                     api.get('/services/?page_size=6'),
                     api.get('/categories/'),
                 ]);
-                setServices(servicesRes.data.results || servicesRes.data);
-                setCategories(categoriesRes.data.results || categoriesRes.data);
+                setServices(Array.isArray(servicesRes.data.results) ? servicesRes.data.results : (Array.isArray(servicesRes.data) ? servicesRes.data : []));
+                setCategories(Array.isArray(categoriesRes.data.results) ? categoriesRes.data.results : (Array.isArray(categoriesRes.data) ? categoriesRes.data : []));
             } catch (error) {
                 console.error('Erreur chargement:', error);
+                setServices([]);
+                setCategories([]);
             } finally {
                 setLoading(false);
             }
@@ -70,7 +72,7 @@ const Home = () => {
                 <div className="max-w-7xl mx-auto px-4">
                     <h2 className="text-3xl font-bold text-center mb-10">Catégories populaires</h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {categories.slice(0, 8).map((cat) => (
+                        {Array.isArray(categories) && categories.slice(0, 8).map((cat) => (
                             <Link
                                 key={cat.id}
                                 to={`/services?category=${cat.id}`}
@@ -101,7 +103,7 @@ const Home = () => {
                         </div>
                     ) : (
                         <div className="grid md:grid-cols-3 gap-6">
-                            {services.map((service) => (
+                            {Array.isArray(services) && services.map((service) => (
                                 <ServiceCard key={service.id} service={service} />
                             ))}
                         </div>
